@@ -1,9 +1,14 @@
 import { io } from 'socket.io-client';
 
-// Apunta al backend en el mismo host desde donde se abrió el navegador.
-// Funciona en localhost Y en red local (ej: 192.168.1.x desde tablet o TV).
-const BACKEND_URL = `http://${window.location.hostname}:3001`;
+// En producción usa la URL del backend desplegado (Railway/Render)
+// En local usa el hostname dinámico (funciona en LAN)
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL
+  ? import.meta.env.VITE_BACKEND_URL.replace(/\/$/, '')
+  : `http://${window.location.hostname}:3001`;
 
-const socket = io(BACKEND_URL, { autoConnect: true });
+const socket = io(BACKEND_URL, {
+  autoConnect: true,
+  transports: ['websocket', 'polling'], // websocket primero, polling como fallback
+});
 
 export default socket;

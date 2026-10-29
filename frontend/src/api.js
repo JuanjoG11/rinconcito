@@ -1,7 +1,10 @@
-// Detecta la IP/host desde donde se abrió el frontend y apunta al backend en el mismo host.
-// Así funciona tanto en localhost como desde otro dispositivo en la red (tablet, TV, etc.)
-const BACKEND_HOST = window.location.hostname;
-const BASE = `http://${BACKEND_HOST}:3001/api`;
+// En producción (Vercel) usa VITE_BACKEND_URL desde .env
+// En local usa el hostname dinámico (funciona en LAN con cualquier IP)
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL
+  ? import.meta.env.VITE_BACKEND_URL.replace(/\/$/, '')
+  : `http://${window.location.hostname}:3001`;
+
+const BASE = `${BACKEND_URL}/api`;
 
 export const getMenu = () => fetch(`${BASE}/menu`).then(r => r.json());
 export const getMenuAll = () => fetch(`${BASE}/menu`).then(r => r.json());
