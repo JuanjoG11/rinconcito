@@ -1,25 +1,22 @@
 import { useState, useEffect } from 'react';
 import { getPedidos, updateEstado, cancelarPedido } from '../api';
-import socket from '../socket';
+import { suscribirPedidos, desuscribir } from '../realtime';
 import { useToast, ToastContainer } from '../components/Toast';
 import PageHeader from '../components/PageHeader';
 
 function formatPrice(n) {
   return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n);
 }
-
 function formatFecha(iso) {
-  return new Date(iso).toLocaleString('es-CO', {
-    day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'
-  });
+  return new Date(iso).toLocaleString('es-CO', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
 }
 
 const ESTADOS = [
-  { valor: 'pendiente', label: '⏳ Pendiente', cls: 'badge-pendiente' },
+  { valor: 'pendiente',      label: '⏳ Pendiente',      cls: 'badge-pendiente' },
   { valor: 'en_preparacion', label: '🔥 En Preparación', cls: 'badge-en_preparacion' },
-  { valor: 'listo', label: '✅ Listo', cls: 'badge-listo' },
-  { valor: 'entregado', label: '🏁 Entregado', cls: 'badge-entregado' },
-  { valor: 'cancelado', label: '❌ Cancelado', cls: 'badge-cancelado' },
+  { valor: 'listo',          label: '✅ Listo',           cls: 'badge-listo' },
+  { valor: 'entregado',      label: '🏁 Entregado',      cls: 'badge-entregado' },
+  { valor: 'cancelado',      label: '❌ Cancelado',      cls: 'badge-cancelado' },
 ];
 
 function BadgeEstado({ estado }) {
@@ -29,9 +26,9 @@ function BadgeEstado({ estado }) {
 
 function ModalPedido({ pedido, onClose, onCambiarEstado, onCancelar }) {
   if (!pedido) return null;
-  const timeline = ESTADOS.filter(e => e.valor !== 'cancelado').map(e => e.valor);
+  const timeline  = ESTADOS.filter(e => e.valor !== 'cancelado').map(e => e.valor);
   const currentIdx = timeline.indexOf(pedido.estado);
-  const canChange = !['entregado', 'cancelado'].includes(pedido.estado);
+  const canChange  = !['entregado', 'cancelado'].includes(pedido.estado);
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -41,33 +38,24 @@ function ModalPedido({ pedido, onClose, onCambiarEstado, onCancelar }) {
           <button className="modal-close" onClick={onClose}>×</button>
         </div>
         <div className="modal-body">
-          {/* Info básica */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '20px' }}>
-            <div>
-              <p className="text-sm text-gray">Mesa</p>
-              <p className="font-bold" style={{ fontSize: '1.2rem', color: 'var(--ocean-dark)' }}>{pedido.mesa}</p>
-            </div>
-            <div>
-              <p className="text-sm text-gray">Mesero</p>
-              <p className="font-bold">{pedido.mesero}</p>
-            </div>
-            <div>
-              <p className="text-sm text-gray">Hora del pedido</p>
-              <p className="font-bold">{formatFecha(pedido.created_at)}</p>
-            </div>
-            <div>
-              <p className="text-sm text-gray">Última actualización</p>
-              <p className="font-bold">{formatFecha(pedido.updated_at)}</p>
-            </div>
+            {[['Mesa', pedido.mesa], ['Mesero', pedido.mesero],
+              ['Hora del pedido', formatFecha(pedido.created_at)],
+              ['Última actualización', formatFecha(pedido.updated_at)]].map(([k, v]) => (
+              <div key={k}>
+                <p className="text-sm text-gray">{k}</p>
+                <p className="font-bold">{v}</p>
+              </div>
+            ))}
           </div>
 
-          {/* Timeline de estado */}
+          {/* Timeline */}
           {pedido.estado !== 'cancelado' && (
             <div style={{ marginBottom: '20px' }}>
               <p className="text-sm text-gray" style={{ marginBottom: '10px', fontWeight: '600' }}>TRAZABILIDAD</p>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0' }}>
+              <div style={{ display: 'flex', alignItems: 'center' }}>
                 {timeline.map((est, i) => {
-                  const done = i <= currentIdx;
+                  const done   = i <= currentIdx;
                   const active = i === currentIdx;
                   return (
                     <div key={est} style={{ flex: 1, display: 'flex', alignItems: 'center' }}>
@@ -79,7 +67,6 @@ function ModalPedido({ pedido, onClose, onCambiarEstado, onCancelar }) {
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
                           fontSize: '0.8rem', fontWeight: '700',
                           border: active ? '3px solid var(--ocean-dark)' : 'none',
-                          transition: 'all 0.3s'
                         }}>
                           {done ? (active ? i + 1 : '✓') : i + 1}
                         </div>
@@ -97,7 +84,7 @@ function ModalPedido({ pedido, onClose, onCambiarEstado, onCancelar }) {
             </div>
           )}
 
-          {/* Items del pedido */}
+          {/* Items */}
           <div>
             <p className="text-sm text-gray" style={{ marginBottom: '10px', fontWeight: '600' }}>ITEMS</p>
             {pedido.items.map((item, i) => (
@@ -120,15 +107,13 @@ function ModalPedido({ pedido, onClose, onCambiarEstado, onCancelar }) {
           <div className="modal-footer" style={{ flexWrap: 'wrap' }}>
             <button className="btn btn-danger btn-sm" onClick={() => onCancelar(pedido.id)}>❌ Cancelar</button>
             <div style={{ flex: 1 }} />
-            {pedido.estado !== 'pendiente' && (
-              <button className="btn btn-secondary btn-sm" onClick={() => onCambiarEstado(pedido.id, timeline[currentIdx - 1])}>
-                ← Retroceder
-              </button>
+            {currentIdx > 0 && (
+              <button className="btn btn-secondary btn-sm"
+                onClick={() => onCambiarEstado(pedido.id, timeline[currentIdx - 1])}>← Retroceder</button>
             )}
             {currentIdx < timeline.length - 1 && (
-              <button className="btn btn-primary btn-sm" onClick={() => onCambiarEstado(pedido.id, timeline[currentIdx + 1])}>
-                Avanzar →
-              </button>
+              <button className="btn btn-primary btn-sm"
+                onClick={() => onCambiarEstado(pedido.id, timeline[currentIdx + 1])}>Avanzar →</button>
             )}
           </div>
         )}
@@ -138,37 +123,35 @@ function ModalPedido({ pedido, onClose, onCambiarEstado, onCancelar }) {
 }
 
 export default function Historial() {
-  const [pedidos, setPedidos] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [filtroEstado, setFiltroEstado] = useState('todos');
-  const [busqueda, setBusqueda] = useState('');
-  const [pedidoSeleccionado, setPedidoSeleccionado] = useState(null);
+  const [pedidos, setPedidos]               = useState([]);
+  const [loading, setLoading]               = useState(true);
+  const [filtroEstado, setFiltroEstado]     = useState('todos');
+  const [busqueda, setBusqueda]             = useState('');
+  const [pedidoSeleccionado, setPedSel]     = useState(null);
   const { toasts, addToast } = useToast();
 
   useEffect(() => {
     getPedidos().then(data => { setPedidos(data); setLoading(false); });
 
-    socket.on('nuevo_pedido', (p) => setPedidos(prev => [p, ...prev]));
-    socket.on('pedido_actualizado', (p) => {
-      setPedidos(prev => prev.map(x => x.id === p.id ? p : x));
-      setPedidoSeleccionado(prev => prev?.id === p.id ? p : prev);
+    const canal = suscribirPedidos({
+      onNuevo:       (p) => setPedidos(prev => [p, ...prev]),
+      onActualizado: (p) => {
+        setPedidos(prev => prev.map(x => x.id === p.id ? p : x));
+        setPedSel(prev  => prev?.id === p.id ? p : prev);
+      },
+      onCancelado: (id) => {
+        setPedidos(prev => prev.map(x => x.id === id ? { ...x, estado: 'cancelado' } : x));
+        setPedSel(prev  => prev?.id === id ? { ...prev, estado: 'cancelado' } : prev);
+      },
     });
-    socket.on('pedido_cancelado', (id) => {
-      setPedidos(prev => prev.map(x => x.id === id ? { ...x, estado: 'cancelado' } : x));
-    });
-
-    return () => {
-      socket.off('nuevo_pedido');
-      socket.off('pedido_actualizado');
-      socket.off('pedido_cancelado');
-    };
+    return () => desuscribir(canal);
   }, []);
 
   async function cambiarEstado(id, estado) {
     await updateEstado(id, estado);
-    addToast(`Estado actualizado: ${estado}`, 'success');
+    addToast(`Estado: ${estado}`, 'success');
     setPedidos(prev => prev.map(p => p.id === id ? { ...p, estado } : p));
-    setPedidoSeleccionado(prev => prev?.id === id ? { ...prev, estado } : prev);
+    setPedSel(prev  => prev?.id === id ? { ...prev, estado } : prev);
   }
 
   async function cancelar(id) {
@@ -176,101 +159,84 @@ export default function Historial() {
     await cancelarPedido(id);
     addToast('Pedido cancelado', 'error');
     setPedidos(prev => prev.map(p => p.id === id ? { ...p, estado: 'cancelado' } : p));
-    setPedidoSeleccionado(null);
+    setPedSel(null);
   }
 
   const filtrados = pedidos.filter(p => {
-    const matchEstado = filtroEstado === 'todos' || p.estado === filtroEstado;
-    const matchBusqueda = busqueda === '' ||
-      p.mesero.toLowerCase().includes(busqueda.toLowerCase()) ||
-      String(p.mesa).includes(busqueda);
-    return matchEstado && matchBusqueda;
+    const ok1 = filtroEstado === 'todos' || p.estado === filtroEstado;
+    const ok2 = !busqueda || p.mesero.toLowerCase().includes(busqueda.toLowerCase()) || String(p.mesa).includes(busqueda);
+    return ok1 && ok2;
   });
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
-      <PageHeader icon="📜" title="Historial de Pedidos" subtitle={`Rincóncito de la Costeña — ${pedidos.length} pedidos en total`} color="#7c3aed">
-      </PageHeader>
+      <PageHeader icon="📜" title="Historial de Pedidos"
+        subtitle={`Rincóncito de la Costeña — ${pedidos.length} pedidos`} color="#7c3aed" />
       <div className="page">
 
-      {/* Filtros */}
-      <div className="card mb-16" style={{ padding: '16px 20px' }}>
-        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
-          <input className="form-control" style={{ maxWidth: '240px' }}
-            placeholder="🔍 Buscar mesa o mesero..."
-            value={busqueda} onChange={e => setBusqueda(e.target.value)} />
-          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-            <button className={`cat-btn ${filtroEstado === 'todos' ? 'active' : ''}`} onClick={() => setFiltroEstado('todos')}>Todos</button>
-            {ESTADOS.map(e => (
-              <button key={e.valor} className={`cat-btn ${filtroEstado === e.valor ? 'active' : ''}`}
-                onClick={() => setFiltroEstado(e.valor)}>
-                {e.label}
-              </button>
-            ))}
+        <div className="card mb-16" style={{ padding: '16px 20px' }}>
+          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
+            <input className="form-control" style={{ maxWidth: '240px' }}
+              placeholder="🔍 Buscar mesa o mesero..."
+              value={busqueda} onChange={e => setBusqueda(e.target.value)} />
+            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+              <button className={`cat-btn ${filtroEstado === 'todos' ? 'active' : ''}`}
+                onClick={() => setFiltroEstado('todos')}>Todos</button>
+              {ESTADOS.map(e => (
+                <button key={e.valor}
+                  className={`cat-btn ${filtroEstado === e.valor ? 'active' : ''}`}
+                  onClick={() => setFiltroEstado(e.valor)}>{e.label}</button>
+              ))}
+            </div>
           </div>
         </div>
-      </div>
 
-      {loading ? (
-        <div className="spinner"><div className="spin" /><p>Cargando...</p></div>
-      ) : filtrados.length === 0 ? (
-        <div className="empty">
-          <div className="empty-icon">📭</div>
-          <h3>Sin resultados</h3>
-          <p>No hay pedidos que coincidan con el filtro</p>
-        </div>
-      ) : (
-        <div className="card">
-          <div className="table-container">
-            <table>
-              <thead>
-                <tr>
-                  <th>Mesa</th>
-                  <th>Mesero</th>
-                  <th>Items</th>
-                  <th>Total</th>
-                  <th>Estado</th>
-                  <th>Hora</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtrados.map(p => (
-                  <tr key={p.id} style={{ cursor: 'pointer' }} onClick={() => setPedidoSeleccionado(p)}>
-                    <td style={{ fontWeight: '700', color: 'var(--ocean-dark)', fontSize: '1.1rem' }}>
-                      Mesa {p.mesa}
-                    </td>
-                    <td>{p.mesero}</td>
-                    <td style={{ maxWidth: '200px' }}>
-                      <div style={{ fontSize: '0.8rem', color: 'var(--gray)' }}>
-                        {p.items?.slice(0, 2).map(i => `${i.cantidad}× ${i.nombre}`).join(', ')}
-                        {p.items?.length > 2 ? ` +${p.items.length - 2} más` : ''}
-                      </div>
-                    </td>
-                    <td style={{ fontWeight: '600', color: 'var(--ocean)' }}>{formatPrice(p.total)}</td>
-                    <td><BadgeEstado estado={p.estado} /></td>
-                    <td style={{ fontSize: '0.85rem', color: 'var(--gray)' }}>{formatFecha(p.created_at)}</td>
-                    <td>
-                      <button className="btn btn-secondary btn-sm" onClick={e => { e.stopPropagation(); setPedidoSeleccionado(p); }}>
-                        Ver
-                      </button>
-                    </td>
+        {loading ? (
+          <div className="spinner"><div className="spin" /><p>Cargando...</p></div>
+        ) : filtrados.length === 0 ? (
+          <div className="empty">
+            <div className="empty-icon">📭</div>
+            <h3>Sin resultados</h3>
+          </div>
+        ) : (
+          <div className="card">
+            <div className="table-container">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Mesa</th><th>Mesero</th><th>Items</th>
+                    <th>Total</th><th>Estado</th><th>Hora</th><th></th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {filtrados.map(p => (
+                    <tr key={p.id} style={{ cursor: 'pointer' }} onClick={() => setPedSel(p)}>
+                      <td style={{ fontWeight: '700', color: 'var(--ocean-dark)', fontSize: '1.1rem' }}>Mesa {p.mesa}</td>
+                      <td>{p.mesero}</td>
+                      <td style={{ maxWidth: '200px' }}>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--gray)' }}>
+                          {p.items?.slice(0, 2).map(i => `${i.cantidad}× ${i.nombre}`).join(', ')}
+                          {p.items?.length > 2 ? ` +${p.items.length - 2} más` : ''}
+                        </div>
+                      </td>
+                      <td style={{ fontWeight: '600', color: 'var(--ocean)' }}>{formatPrice(p.total)}</td>
+                      <td><BadgeEstado estado={p.estado} /></td>
+                      <td style={{ fontSize: '0.85rem', color: 'var(--gray)' }}>{formatFecha(p.created_at)}</td>
+                      <td>
+                        <button className="btn btn-secondary btn-sm"
+                          onClick={e => { e.stopPropagation(); setPedSel(p); }}>Ver</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      <ModalPedido
-        pedido={pedidoSeleccionado}
-        onClose={() => setPedidoSeleccionado(null)}
-        onCambiarEstado={cambiarEstado}
-        onCancelar={cancelar}
-      />
-
-      <ToastContainer toasts={toasts} />
+        <ModalPedido pedido={pedidoSeleccionado} onClose={() => setPedSel(null)}
+          onCambiarEstado={cambiarEstado} onCancelar={cancelar} />
+        <ToastContainer toasts={toasts} />
       </div>
     </div>
   );
