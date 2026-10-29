@@ -1,0 +1,15 @@
+{
+  "name": "Cocina — Rincóncito de la Costeña",
+  "short_name": "Cocina 🔥",
+  "description": "Pantalla de cocina en tiempo real",
+  "start_url": "/cocina",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "landscape",
+  "background_color": "#0a1628",
+  "theme_color": "#0a1628",
+  "icons": [
+    { "src": "/icons/icon-cocina.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ],
+  "categories": ["food", "productivity"]
+}

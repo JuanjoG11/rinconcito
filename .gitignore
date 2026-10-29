@@ -1,0 +1,27 @@
+# Dependencias
+node_modules/
+
+# Variables de entorno — NUNCA subir al repo
+.env
+.env.local
+.env.production
+
+# Base de datos local SQLite (ya no se usa, pero por si acaso)
+*.db
+*.db-shm
+*.db-wal
+
+# Build del frontend
+frontend/dist/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/

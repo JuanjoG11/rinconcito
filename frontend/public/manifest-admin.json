@@ -1,0 +1,19 @@
+{
+  "name": "Admin — Rincóncito de la Costeña",
+  "short_name": "Admin 📊",
+  "description": "Dashboard y historial de pedidos",
+  "start_url": "/dashboard",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#064e3b",
+  "theme_color": "#059669",
+  "icons": [
+    { "src": "/icons/icon-admin.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Dashboard", "url": "/dashboard", "description": "Ver ventas del día" },
+    { "name": "Historial", "url": "/historial", "description": "Ver todos los pedidos" }
+  ],
+  "categories": ["food", "productivity"]
+}

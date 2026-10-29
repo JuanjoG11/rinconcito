@@ -1,0 +1,18 @@
+{
+  "name": "Mesero — Rincóncito de la Costeña",
+  "short_name": "Mesero 🐚",
+  "description": "Toma de pedidos en mesa",
+  "start_url": "/pedidos",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#023e8a",
+  "theme_color": "#0077b6",
+  "icons": [
+    { "src": "/icons/icon-mesero.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Nuevo Pedido", "url": "/pedidos", "description": "Tomar un pedido nuevo" }
+  ],
+  "categories": ["food", "productivity"]
+}
